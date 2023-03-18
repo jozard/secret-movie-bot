@@ -39,7 +39,7 @@ public class SecretMovieBot extends TelegramLongPollingCommandBot {
 
     private final OnVoteSent onVoteSent;
 
-    public SecretMovieBot(UserService userService, StickerService stickerService, Start start, Stop stop, Join join, Vote vote, CreateRandom createRandom, CreateSimpleVote createSimpleVote, OnJoin onJoin, OnGroupSent onGroupSent, OnMovieSent onMovieSent, OnVoteSent onVoteSent) throws TelegramApiException {
+    public SecretMovieBot(UserService userService, StickerService stickerService, Start start, Stop stop, Join join, Vote vote, CreateRandom createRandom, CreateSimpleVote createSimpleVote, CreateBalancedVote createBalancedVote, OnJoin onJoin, OnGroupSent onGroupSent, OnMovieSent onMovieSent, OnVoteSent onVoteSent) throws TelegramApiException {
         super(new DefaultBotOptions(), true);
         this.userService = userService;
         this.stickerService = stickerService;
@@ -56,6 +56,7 @@ public class SecretMovieBot extends TelegramLongPollingCommandBot {
         groupChatCommands.add(new BotCommand(Join.NAME, Join.DESCRIPTION));
         groupChatCommands.add(new BotCommand(CreateRandom.NAME, CreateRandom.DESCRIPTION));
         groupChatCommands.add(new BotCommand(CreateSimpleVote.NAME, CreateSimpleVote.DESCRIPTION));
+        groupChatCommands.add(new BotCommand(CreateBalancedVote.NAME, CreateBalancedVote.DESCRIPTION));
         BotCommandScope privateChatsScope = new BotCommandScopeAllPrivateChats();
         BotCommandScope groupsScope = new BotCommandScopeAllGroupChats();
         this.execute(new SetMyCommands(privateChatCommands, privateChatsScope, "en"));
@@ -65,6 +66,7 @@ public class SecretMovieBot extends TelegramLongPollingCommandBot {
         this.register(join);
         this.register(createRandom);
         this.register(createSimpleVote);
+        this.register(createBalancedVote);
         this.register(vote);
     }
 
