@@ -1,9 +1,9 @@
 package com.jozard.secretmoviebot.actions;
 
-import com.jozard.secretmoviebot.users.UserService;
 import com.jozard.secretmoviebot.StickerService;
 import com.jozard.secretmoviebot.users.Movie;
 import com.jozard.secretmoviebot.users.PitchStateMachine;
+import com.jozard.secretmoviebot.users.UserService;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Message;
@@ -18,12 +18,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 
 import static org.springframework.util.StringUtils.capitalize;
 
 @Component
 public class OnMovieSent extends PrivateChatAction {
 
+    private static final String DELIMITER = System.getProperty("line.separator");
     private final UserService userService;
     private final StickerService stickerService;
 
@@ -65,9 +67,8 @@ public class OnMovieSent extends PrivateChatAction {
                     SendMessage extraGroupNotification = new SendMessage();
                     extraGroupNotification.setChatId(String.valueOf(targetGroup.get().getChatId()));
                     extraGroupNotification.enableMarkdown(true);
-                    extraGroupNotification.setText(
-                            MessageFormat.format("*{0}* has selected a movie",
-                                    capitalize(state.getUser().getFirstName())));
+                    extraGroupNotification.setText(MessageFormat.format("*{0}* has selected a movie",
+                            capitalize(state.getUser().getFirstName())));
                     try {
                         absSender.execute(extraGroupNotification);
                     } catch (TelegramApiException e) {
@@ -75,9 +76,14 @@ public class OnMovieSent extends PrivateChatAction {
                     }
                     List<String> movies = targetGroup.get().getMovies().stream().map(Movie::getTitle).toList();
                     int index = ThreadLocalRandom.current().nextInt(0, movies.size());
-                    groupNotification.setText(
+
+                    String visibleContent = targetGroup.get().getMovies().stream().map(
+                            item -> MessageFormat.format("*{0}* by {1}", item.getTitle(), item.getOwner())).collect(
+                            Collectors.joining(DELIMITER));
+
+                    groupNotification.setText(String.join(DELIMITER, visibleContent, DELIMITER,
                             MessageFormat.format("Hurray\\! The chosen one has arrived\\!{1}*||{0}||*",
-                                    movies.get(index), System.getProperty("line.separator")));
+                                    movies.get(index), DELIMITER)));
                     groupNotification.setParseMode("MarkdownV2");
                     userService.remove(targetGroup.get().getChatId());
                 } else {
@@ -86,7 +92,8 @@ public class OnMovieSent extends PrivateChatAction {
                             chosenMovie, targetGroup.get().getChatName()));
                 }
 
-            } else if (targetGroup.get().getPitchType() == UserService.PitchType.SIMPLE_VOTE) {
+            } else if (List.of(UserService.PitchType.SIMPLE_VOTE, UserService.PitchType.BALANCED_VOTE).contains(
+                    targetGroup.get().getPitchType())) {
                 state.pendingVoteStart();
                 if (targetGroup.get().isAllMoviesSelected()) {
                     // everyone selected -> vote
@@ -97,9 +104,8 @@ public class OnMovieSent extends PrivateChatAction {
                     SendMessage extraGroupNotification = new SendMessage();
                     extraGroupNotification.setChatId(String.valueOf(targetGroup.get().getChatId()));
                     extraGroupNotification.enableMarkdown(true);
-                    extraGroupNotification.setText(
-                            MessageFormat.format("*{0}* has selected a movie",
-                                    capitalize(state.getUser().getFirstName())));
+                    extraGroupNotification.setText(MessageFormat.format("*{0}* has selected a movie",
+                            capitalize(state.getUser().getFirstName())));
                     try {
                         absSender.execute(extraGroupNotification);
                     } catch (TelegramApiException e) {

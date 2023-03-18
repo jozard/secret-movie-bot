@@ -1,9 +1,10 @@
 package com.jozard.secretmoviebot.commands;
 
 
-import com.jozard.secretmoviebot.users.UserService;
+import com.jozard.secretmoviebot.Utils;
 import com.jozard.secretmoviebot.StickerService;
 import com.jozard.secretmoviebot.users.PitchStateMachine;
+import com.jozard.secretmoviebot.users.UserService;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.extensions.bots.commandbot.commands.BotCommand;
@@ -43,9 +44,7 @@ public class Vote extends BotCommand {
         long chatId = chat.getId();
 
 
-
-
-        if (chat.isUserChat()) {
+        if (Utils.isUser(chat)) {
 
             Optional<PitchStateMachine> votingUser = userService.getPitching(user);
             if (votingUser.isPresent()) {
@@ -61,7 +60,7 @@ public class Vote extends BotCommand {
                     if (group.isAllMoviesSelected()) {
 
                         if (group.getPitchType().equals(UserService.PitchType.SIMPLE_VOTE)) {
-                            votingUser.get().pendingSimpleVote();
+                            votingUser.get().pendingVote();
                             List<KeyboardButton> groupButtons = group.getMovies().stream().filter(
                                     movie -> !movie.getOwner().equals(user)).map(
                                     movie -> KeyboardButton.builder().text(movie.getTitle()).build()).toList();
@@ -99,7 +98,6 @@ public class Vote extends BotCommand {
                 System.out.println("!!! Pitching states for " + chatId + ": " + userService.getStates(chatId));
             }
         }
-
 
 
     }

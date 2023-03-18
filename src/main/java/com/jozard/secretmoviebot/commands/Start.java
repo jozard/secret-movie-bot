@@ -1,10 +1,11 @@
 package com.jozard.secretmoviebot.commands;
 
 
-import com.jozard.secretmoviebot.users.AdminExistsException;
-import com.jozard.secretmoviebot.users.UserService;
+import com.jozard.secretmoviebot.Utils;
 import com.jozard.secretmoviebot.StickerService;
 import com.jozard.secretmoviebot.jobs.GroupCleanup;
+import com.jozard.secretmoviebot.users.AdminExistsException;
+import com.jozard.secretmoviebot.users.UserService;
 import com.vdurmont.emoji.EmojiParser;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Component;
@@ -51,7 +52,8 @@ public class Start extends BotCommand {
     @Override
     public void execute(AbsSender absSender, User user, Chat chat, String[] strings) {
         long chatId = chat.getId();
-        if (chat.isGroupChat()) {
+        boolean isGroup = Utils.isGroup(chat);
+        if (isGroup) {
             // we are in a group
             if (!userService.pitchRegistered(chatId)) {
                 // first time start command called for this chat
@@ -65,6 +67,7 @@ public class Start extends BotCommand {
                             "{0}, you are already an admin in another movie choosing",
                             capitalize(user.getFirstName())));
                     try {
+
                         absSender.execute(response);
                     } catch (TelegramApiException telegramApiException) {
                         e.printStackTrace();
@@ -89,8 +92,6 @@ public class Start extends BotCommand {
                 }
                 return;
             }
-        } else {
-            // private chat. Do nothing here yet.
         }
 
         System.out.println(MessageFormat.format("User {0} starts bot in {1} chat {2}", user.getUserName(),
@@ -98,7 +99,7 @@ public class Start extends BotCommand {
         SendMessage response = new SendMessage();
         response.setChatId(chat.getId().toString());
 
-        if (chat.isGroupChat()) {
+        if (isGroup) {
             InlineKeyboardMarkup keyboardMarkup = new InlineKeyboardMarkup();
             List<InlineKeyboardButton> keyboardRow = new ArrayList<>();
             response.setText("Let the movie choosing begin! Click the `Join` button to participate.");
@@ -113,7 +114,7 @@ public class Start extends BotCommand {
             response.setReplyMarkup(keyboardMarkup);
 
 
-        } else {
+        } else if (Utils.isUser(chat)) {
 
             List<KeyboardButton> groupButtons = userService.getGroupsAvailableToStartPitch(user).stream().map(
                     group -> KeyboardButton.builder().text(group.getChatName()).build()).toList();
@@ -139,6 +140,8 @@ public class Start extends BotCommand {
 
             response.enableMarkdown(true);
 
+        } else {
+            return;
         }
 
 

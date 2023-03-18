@@ -45,8 +45,8 @@ public class PitchStateMachine {
         this.currentState = UserState.PENDING_CURRENT_GROUP;
     }
 
-    public void pendingSimpleVote() {
-        this.currentState = UserState.PENDING_SIMPLE_VOTE;
+    public void pendingVote() {
+        this.currentState = UserState.PENDING_VOTE;
     }
 
     public void pendingVoteStart() {
@@ -99,7 +99,7 @@ public class PitchStateMachine {
     }
 
     public boolean isPendingSimpleVote() {
-        return this.currentState == UserState.PENDING_SIMPLE_VOTE;
+        return this.currentState == UserState.PENDING_VOTE;
     }
 
     public boolean isPendingVoteStart() {
@@ -113,7 +113,7 @@ public class PitchStateMachine {
         PENDING_MOVIE_NAME,
 
         MOVIE_NAME_SET,
-        PENDING_SIMPLE_VOTE,
+        PENDING_VOTE,
         PENDING_VOTE_START,
     }
 }

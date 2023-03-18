@@ -1,5 +1,6 @@
 package com.jozard.secretmoviebot.actions;
 
+import com.jozard.secretmoviebot.Utils;
 import com.jozard.secretmoviebot.users.Movie;
 import com.jozard.secretmoviebot.users.PitchStateMachine;
 import com.jozard.secretmoviebot.users.UserService;
@@ -16,16 +17,20 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static org.springframework.util.StringUtils.capitalize;
 
 @Component
-public class OnSimpleVoteSent extends PrivateChatAction {
+public class OnVoteSent extends PrivateChatAction {
 
+    private static final String DELIMITER = System.getProperty("line.separator");
     private final UserService userService;
 
-    public OnSimpleVoteSent(UserService userService) {
+    public OnVoteSent(UserService userService) {
         this.userService = userService;
     }
 
@@ -38,7 +43,8 @@ public class OnSimpleVoteSent extends PrivateChatAction {
         if (targetGroup.isEmpty()) {
             return; // should never happen
         }
-        if (targetGroup.get().getPitchType() == UserService.PitchType.SIMPLE_VOTE) {
+        if (List.of(UserService.PitchType.SIMPLE_VOTE, UserService.PitchType.BALANCED_VOTE).contains(
+                targetGroup.get().getPitchType())) {
 
             this.reply(absSender, message.getChatId(), response -> {
                 response.enableMarkdown(true);
@@ -55,8 +61,9 @@ public class OnSimpleVoteSent extends PrivateChatAction {
                     groupNotification.enableMarkdown(true);
 
                     //check if all are voted
-                    Set<User> votedUsers = targetGroup.get().getVotes().stream().flatMap(
-                            item -> item.getVoted().stream()).collect(Collectors.toSet());
+                    List<UserService.Group.VoteResult> votes = targetGroup.get().getVotes();
+                    Set<User> votedUsers = votes.stream().flatMap(item -> item.getVoted().stream()).collect(
+                            Collectors.toSet());
 
                     if (votedUsers.size() == targetGroup.get().getUsers().size()) {
                         // show result in the group
@@ -71,15 +78,37 @@ public class OnSimpleVoteSent extends PrivateChatAction {
                         } catch (TelegramApiException e) {
                             e.printStackTrace();
                         }
-                        List<UserService.Group.VoteResult> sorted = targetGroup.get().getVotes().stream().sorted(
+                        List<UserService.Group.VoteResult> sortedVoteResults = votes.stream().sorted(
                                 Comparator.comparing(voteResult -> voteResult.getVoted().size(),
                                         Comparator.reverseOrder())).toList();
-                        String content = sorted.stream().map(
-                                item -> MessageFormat.format("*{0}* \\- {1} votes", item.getMovie().getTitle(),
-                                        item.getVoted().size())).collect(
-                                Collectors.joining(System.getProperty("line.separator")));
-                        groupNotification.setText("||" + content + "||");
+                        String hiddenContent;
+                        String visibleContent = "";
+                        if (UserService.PitchType.BALANCED_VOTE.equals(targetGroup.get().getPitchType())) {
+
+                            // send vote results, they can be visible
+                            visibleContent = sortedVoteResults.stream().map(Utils::getVoteSummary).collect(
+                                    Collectors.joining(DELIMITER));
+
+                            // generate list of weights
+                            List<Integer> weights = votes.stream().flatMapToInt(
+                                    item -> IntStream.generate(() -> votes.indexOf(item)).limit(
+                                            votes.size())).boxed().toList();
+                            int index = ThreadLocalRandom.current().nextInt(0, weights.size());
+                            UserService.Group.VoteResult winner = votes.get(weights.get(index));
+
+                            hiddenContent = MessageFormat.format("Hurray\\! The chosen one has arrived\\!{1}*||{0}||*",
+                                    winner.getMovie().getTitle(), DELIMITER);
+                        } else {
+                            // simple vote
+                            hiddenContent = sortedVoteResults.stream().map(Utils::getVoteSummary).collect(
+                                    Collectors.joining(DELIMITER));
+                        }
+
+                        groupNotification.setText(
+                                Stream.of(visibleContent, DELIMITER, "||" + hiddenContent + "||").collect(
+                                        Collectors.joining(DELIMITER)));
                         groupNotification.setParseMode("MarkdownV2");
+
                         userService.remove(targetGroup.get().getChatId());
 
                     } else {

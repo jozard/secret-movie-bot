@@ -1,8 +1,8 @@
 package com.jozard.secretmoviebot.actions;
 
-import com.jozard.secretmoviebot.users.UserService;
 import com.jozard.secretmoviebot.StickerService;
 import com.jozard.secretmoviebot.users.PitchStateMachine;
+import com.jozard.secretmoviebot.users.UserService;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.User;

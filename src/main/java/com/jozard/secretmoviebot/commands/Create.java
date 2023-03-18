@@ -1,8 +1,9 @@
 package com.jozard.secretmoviebot.commands;
 
 
-import com.jozard.secretmoviebot.users.UserService;
+import com.jozard.secretmoviebot.Utils;
 import com.jozard.secretmoviebot.StickerService;
+import com.jozard.secretmoviebot.users.UserService;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.User;
@@ -14,14 +15,17 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 public abstract class Create extends AdminCommand {
 
     protected final StickerService stickerService;
+    private final Consumer<Chat> postCreate;
 
-    public Create(String name, String description, UserService userService, StickerService stickerService) {
+    public Create(String name, String description, UserService userService, StickerService stickerService, Consumer<Chat> postCreate) {
         super(userService, name, description);
         this.stickerService = stickerService;
+        this.postCreate = postCreate;
     }
 
 
@@ -31,7 +35,7 @@ public abstract class Create extends AdminCommand {
         long chatId = chat.getId();
         List<InlineKeyboardButton> keyboardRow = new ArrayList<>();
 
-        if (chat.isGroupChat()) {
+        if (Utils.isGroup(chat)) {
             boolean allowed = true;
             System.out.println(MessageFormat.format("User {0} is trying to create a pitch in chat {1}",
                     String.join(" ", user.getFirstName(), user.getLastName()), chat.getId()));
@@ -65,7 +69,7 @@ public abstract class Create extends AdminCommand {
             if (!allowed) {
                 throw new PitchFailedException("Not enough users joined");
             }
-
+            postCreate.accept(chat);
         }
         // no reason to do this in private chats
 

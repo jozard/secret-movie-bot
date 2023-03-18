@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
 @Service
 public class UserService {
     // chat_id -> group
-     private final Map<Long, Group> groups = new HashMap<>();
+    private final Map<Long, Group> groups = new HashMap<>();
 
     private final List<PitchStateMachine> pitchStateMachines = new ArrayList<>();
 
@@ -126,7 +126,7 @@ public class UserService {
     }
 
     public enum PitchType {
-        RANDOM, SIMPLE_VOTE
+        RANDOM, SIMPLE_VOTE, BALANCED_VOTE
     }
 
     public class Group {
@@ -161,6 +161,10 @@ public class UserService {
 
         public void setSimpleVote() {
             this.pitchType = PitchType.SIMPLE_VOTE;
+        }
+
+        public void setBalancedVote() {
+            this.pitchType = PitchType.BALANCED_VOTE;
         }
 
         public PitchType getPitchType() {

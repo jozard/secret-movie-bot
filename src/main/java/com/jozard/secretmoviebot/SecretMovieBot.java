@@ -3,7 +3,7 @@ package com.jozard.secretmoviebot;
 import com.jozard.secretmoviebot.actions.OnGroupSent;
 import com.jozard.secretmoviebot.actions.OnJoin;
 import com.jozard.secretmoviebot.actions.OnMovieSent;
-import com.jozard.secretmoviebot.actions.OnSimpleVoteSent;
+import com.jozard.secretmoviebot.actions.OnVoteSent;
 import com.jozard.secretmoviebot.commands.*;
 import com.jozard.secretmoviebot.users.PitchStateMachine;
 import com.jozard.secretmoviebot.users.UserService;
@@ -37,16 +37,16 @@ public class SecretMovieBot extends TelegramLongPollingCommandBot {
     private final OnGroupSent onGroupSent;
     private final OnMovieSent onMovieSent;
 
-    private final OnSimpleVoteSent onSimpleVoteSent;
+    private final OnVoteSent onVoteSent;
 
-    public SecretMovieBot(UserService userService, StickerService stickerService, Start start, Stop stop, Join join, Vote vote, CreateRandom createRandom, CreateSimpleVote createSimpleVote, OnJoin onJoin, OnGroupSent onGroupSent, OnMovieSent onMovieSent, OnSimpleVoteSent onSimpleVoteSent) throws TelegramApiException {
+    public SecretMovieBot(UserService userService, StickerService stickerService, Start start, Stop stop, Join join, Vote vote, CreateRandom createRandom, CreateSimpleVote createSimpleVote, OnJoin onJoin, OnGroupSent onGroupSent, OnMovieSent onMovieSent, OnVoteSent onVoteSent) throws TelegramApiException {
         super(new DefaultBotOptions(), true);
         this.userService = userService;
         this.stickerService = stickerService;
         this.onJoin = onJoin;
         this.onGroupSent = onGroupSent;
         this.onMovieSent = onMovieSent;
-        this.onSimpleVoteSent = onSimpleVoteSent;
+        this.onVoteSent = onVoteSent;
         List<BotCommand> privateChatCommands = new ArrayList<>();
         List<BotCommand> groupChatCommands = new ArrayList<>();
         privateChatCommands.add(new BotCommand(Start.NAME, Start.DESCRIPTION));
@@ -85,7 +85,7 @@ public class SecretMovieBot extends TelegramLongPollingCommandBot {
 
         if (update.hasMessage()) {
             Message message = update.getMessage();
-            if (message.getChat().isUserChat()) {
+            if (Utils.isUser(message.getChat())) {
                 // private message from the user. Let's process it.
                 var user = message.getFrom();
                 System.out.println(
@@ -117,7 +117,7 @@ public class SecretMovieBot extends TelegramLongPollingCommandBot {
                     System.out.println(MessageFormat.format("User {0} is in pending vote state. Ignore this message",
                             user.getUserName()));
                 } else if (userState.get().isPendingSimpleVote()) {
-                    this.onSimpleVoteSent.execute(this, userState.get(), message, null);
+                    this.onVoteSent.execute(this, userState.get(), message, null);
                 } else {
                     //the user is done
                     System.out.println(

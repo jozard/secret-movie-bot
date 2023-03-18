@@ -1,8 +1,9 @@
 package com.jozard.secretmoviebot.commands;
 
 
-import com.jozard.secretmoviebot.users.UserService;
+import com.jozard.secretmoviebot.Utils;
 import com.jozard.secretmoviebot.users.JoinedUser;
+import com.jozard.secretmoviebot.users.UserService;
 import org.telegram.telegrambots.extensions.bots.commandbot.commands.BotCommand;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Chat;
@@ -27,7 +28,7 @@ public abstract class AdminCommand extends BotCommand {
     public void execute(AbsSender absSender, User user, Chat chat, String[] strings) {
 
         long chatId = chat.getId();
-        if (chat.isGroupChat()) {
+        if (Utils.isGroup(chat)) {
             // we are in a group
             if (!userService.pitchRegistered(chatId)) {
                 throw new IllegalArgumentException(MessageFormat.format("Pitch is not registered in chat {0}", chatId));

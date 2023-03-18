@@ -3,13 +3,12 @@ package com.jozard.secretmoviebot.commands;
 
 import com.jozard.secretmoviebot.actions.OnJoin;
 import org.springframework.stereotype.Component;
-import org.telegram.telegrambots.extensions.bots.commandbot.commands.BotCommand;
 import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.bots.AbsSender;
 
 @Component
-public class Join extends BotCommand {
+public class Join extends GroupCommand {
 
     public static final String NAME = "join";
     public static final String DESCRIPTION = """
@@ -23,11 +22,7 @@ public class Join extends BotCommand {
     }
 
     @Override
-    public void execute(AbsSender absSender, User user, Chat chat, String[] strings) {
-        long chatId = chat.getId();
-        if (chat.isGroupChat()) {
-            this.onJoin.execute(absSender, user, chatId, null);
-
-        }
+    public void doExecute(AbsSender absSender, User user, Chat chat, String[] strings) {
+        this.onJoin.execute(absSender, user, chat.getId(), null);
     }
 }
