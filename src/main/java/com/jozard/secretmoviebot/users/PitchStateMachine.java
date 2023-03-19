@@ -11,11 +11,9 @@ public class PitchStateMachine {
 
     private final Set<Long> pendingStartGroups = new HashSet<>();
 
-    private final Set<Movie> votes = new HashSet<>();
-    private Movie movie;
     private UserState currentState = UserState.PENDING_START;
 
-    private Long currentGroup;
+    private UserService.Group currentGroup;
 
     public PitchStateMachine(User user) {
         this.user = user;
@@ -33,12 +31,10 @@ public class PitchStateMachine {
         return this.pendingStartGroups.size() > 0;
     }
 
-    public void selectGroup(long chatId) {
+    public void selectGroup(UserService.Group group) {
         this.currentState = UserState.PENDING_MOVIE_NAME;
-        movie = null;
-        votes.clear();
-        currentGroup = chatId;
-        pendingStartGroups.remove(currentGroup);
+        currentGroup = group;
+        pendingStartGroups.remove(currentGroup.getChatId());
     }
 
     public void start() {
@@ -53,18 +49,12 @@ public class PitchStateMachine {
         this.currentState = UserState.PENDING_VOTE_START;
     }
 
-    public Movie setMovie(String title) {
-        this.movie = new Movie(title, user);
+    public void movieSet() {
         this.currentState = UserState.MOVIE_NAME_SET;
-        return this.movie;
     }
 
     public void done() {
         this.currentState = UserState.PENDING_START;
-    }
-
-    public Set<Movie> getVotes() {
-        return votes;
     }
 
     public void join(Long chatId) {
@@ -86,7 +76,7 @@ public class PitchStateMachine {
         return currentState;
     }
 
-    public Optional<Long> getCurrentGroup() {
+    public Optional<UserService.Group> getCurrentGroup() {
         return Optional.ofNullable(currentGroup);
     }
 
@@ -98,7 +88,7 @@ public class PitchStateMachine {
         return this.currentState == UserState.PENDING_CURRENT_GROUP;
     }
 
-    public boolean isPendingSimpleVote() {
+    public boolean isPendingVote() {
         return this.currentState == UserState.PENDING_VOTE;
     }
 

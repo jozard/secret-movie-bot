@@ -2,6 +2,7 @@ package com.jozard.secretmoviebot.users;
 
 
 import org.springframework.stereotype.Service;
+import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.User;
 
 import java.text.MessageFormat;
@@ -16,6 +17,37 @@ public class UserService {
 
     private final List<PitchStateMachine> pitchStateMachines = new ArrayList<>();
 
+    //TODO: this is a bad design due to memory consumption increase. We have to live with it while the bot is stateless.
+    private final Map<Long, Long> userToPrivateChat = new HashMap<>();
+
+    public final Optional<Long> getPrivateChat(User user) {
+        return Optional.ofNullable(userToPrivateChat.get(user.getId()));
+    }
+
+    public final void updatePrivateChat(User user, Chat chat) {
+        if (chat.isUserChat()) {
+            if (user.getIsBot()) {
+                throw new IllegalArgumentException(
+                        "User " + user.getFirstName() + " is bot. Cannot own a private chat.");
+            }
+            userToPrivateChat.put(user.getId(), chat.getId());
+            return;
+        }
+        throw new IllegalArgumentException(
+                "Chat " + chat.getFirstName() + " is no private. Cannot add user " + user.getFirstName());
+
+    }
+
+    public final boolean privateChatRegistered(User user) {
+        return userToPrivateChat.containsKey(user.getId());
+    }
+
+    // we remove by entry as there is no way to find out the user ID who kicks the bot from the chat (when chat is removed)
+    public final void deletePrivateChat(long chatId) {
+        Optional<Map.Entry<Long, Long>> removeCandidate = userToPrivateChat.entrySet().stream().filter(
+                item -> item.getValue().equals(chatId)).findFirst();
+        removeCandidate.ifPresent(entry -> userToPrivateChat.remove(entry.getKey()));
+    }
 
     public final List<JoinedUser> getUsers(long chatId) {
         if (groups.containsKey(chatId)) {
@@ -171,6 +203,10 @@ public class UserService {
             return pitchType;
         }
 
+        public void setPitchType(PitchType pitchType) {
+            this.pitchType = pitchType;
+        }
+
         public boolean pitchCreated() {
             return pitchType != null;
         }
@@ -225,6 +261,12 @@ public class UserService {
 
         public Set<Movie> getMovies() {
             return movies;
+        }
+
+        public void cleanMovie(User user) {
+            Optional<Movie> removeCandidate = this.movies.stream().filter(
+                    item -> item.getOwner().equals(user)).findFirst();
+            removeCandidate.ifPresent(this.movies::remove);
         }
 
         public List<JoinedUser> getUsers() {

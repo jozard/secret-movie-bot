@@ -25,7 +25,7 @@ public class GroupCleanup implements Runnable {
         if (groupExist) {
             SendMessage response = new SendMessage();
             response.setChatId(String.valueOf(groupId));
-            response.setText("Registered movie choosing has timed out. Create a new one. Chat ID=" + groupId);
+            response.setText("Registered movie choosing has timed out. Create a new one");
             try {
                 absSender.execute(response);
             } catch (TelegramApiException e) {

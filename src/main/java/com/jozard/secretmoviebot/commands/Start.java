@@ -4,8 +4,12 @@ package com.jozard.secretmoviebot.commands;
 import com.jozard.secretmoviebot.MessageService;
 import com.jozard.secretmoviebot.StickerService;
 import com.jozard.secretmoviebot.Utils;
+import com.jozard.secretmoviebot.actions.RequestMovie;
+import com.jozard.secretmoviebot.actions.RequestTargetGroup;
+import com.jozard.secretmoviebot.actions.RequestVote;
 import com.jozard.secretmoviebot.jobs.GroupCleanup;
 import com.jozard.secretmoviebot.users.AdminExistsException;
+import com.jozard.secretmoviebot.users.PitchStateMachine;
 import com.jozard.secretmoviebot.users.UserService;
 import com.vdurmont.emoji.EmojiParser;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
@@ -14,10 +18,7 @@ import org.telegram.telegrambots.extensions.bots.commandbot.commands.BotCommand;
 import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.bots.AbsSender;
 
 import java.text.MessageFormat;
@@ -25,6 +26,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ScheduledFuture;
 
 import static com.jozard.secretmoviebot.StickerService.NO_KIPESH_STICKER_ID;
@@ -42,12 +44,19 @@ public class Start extends BotCommand {
     private final ThreadPoolTaskScheduler scheduler;
     private final StickerService stickerService;
 
-    public Start(MessageService messageService, UserService userService, ThreadPoolTaskScheduler scheduler, StickerService stickerService) {
+    private final RequestTargetGroup requestTargetGroup;
+    private final RequestMovie requestMovie;
+    private final RequestVote requestVote;
+
+    public Start(MessageService messageService, UserService userService, ThreadPoolTaskScheduler scheduler, StickerService stickerService, RequestTargetGroup requestTargetGroup, RequestMovie requestMovie, RequestVote requestVote) {
         super(NAME, DESCRIPTION);
         this.messageService = messageService;
         this.userService = userService;
         this.scheduler = scheduler;
         this.stickerService = stickerService;
+        this.requestTargetGroup = requestTargetGroup;
+        this.requestMovie = requestMovie;
+        this.requestVote = requestVote;
     }
 
     @Override
@@ -97,23 +106,22 @@ public class Start extends BotCommand {
                     "Let the movie choosing begin! Click the `Join` button to participate.", keyboardMarkup);
 
         } else if (Utils.isUser(chat)) {
-
-            List<KeyboardButton> groupButtons = userService.getGroupsAvailableToStartPitch(user).stream().map(
-                    group -> KeyboardButton.builder().text(group.getChatName()).build()).toList();
-            if (groupButtons.isEmpty()) {
-                messageService.send(absSender, chatId,
-                        "Cannot start. Either you are done with all pitches, a bot is waiting for a movie title from you, or no pitch is created in your groups.");
-            } else {
-                userService.getPitching(user).orElseThrow().start();
-                List<KeyboardRow> keyboardRows = groupButtons.stream().map(button -> {
-                    KeyboardRow row = new KeyboardRow();
-                    row.add(button);
-                    return row;
-                }).toList();
-                ReplyKeyboardMarkup replyKeyboardMarkup = ReplyKeyboardMarkup.builder().keyboard(
-                        keyboardRows).resizeKeyboard(true).oneTimeKeyboard(true).build();
-                messageService.send(absSender, chatId,
-                        "Send me a group to choose movies. You can use the button(s) below.", replyKeyboardMarkup);
+            Optional<PitchStateMachine> stateWrapper = userService.getPitching(user);
+            if (stateWrapper.isPresent()) {
+                PitchStateMachine state = stateWrapper.get();
+                if (state.isPendingStart() || state.isPendingCurrentGroup()) {
+                    requestTargetGroup.execute(absSender, user, chatId, strings);
+                } else if (state.isPendingMovie()) {
+                    UserService.Group currentGroup = state.getCurrentGroup().orElseThrow();
+                    requestMovie.execute(absSender, user, chatId, new String[]{currentGroup.getChatName()});
+                } else if (state.isPendingVoteStart()) {
+                    // waiting; do nothing
+                } else if (state.isPendingVote()) {
+                    requestVote.execute(absSender, user, chatId, null);
+                } else {
+                    throw new IllegalStateException(
+                            "State " + state.getCurrentState() + " is not supported in Start command");
+                }
             }
 
         }

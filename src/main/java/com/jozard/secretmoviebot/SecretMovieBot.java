@@ -1,20 +1,19 @@
 package com.jozard.secretmoviebot;
 
-import com.jozard.secretmoviebot.actions.OnGroupSent;
-import com.jozard.secretmoviebot.actions.OnJoin;
-import com.jozard.secretmoviebot.actions.OnMovieSent;
-import com.jozard.secretmoviebot.actions.OnVoteSent;
+import com.jozard.secretmoviebot.actions.JoinUser;
 import com.jozard.secretmoviebot.commands.*;
+import com.jozard.secretmoviebot.listeners.OnGroupSent;
+import com.jozard.secretmoviebot.listeners.OnMovieSent;
+import com.jozard.secretmoviebot.listeners.OnVoteSent;
 import com.jozard.secretmoviebot.users.PitchStateMachine;
 import com.jozard.secretmoviebot.users.UserService;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.DefaultBotOptions;
 import org.telegram.telegrambots.extensions.bots.commandbot.TelegramLongPollingCommandBot;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
-import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
-import org.telegram.telegrambots.meta.api.objects.Message;
-import org.telegram.telegrambots.meta.api.objects.Update;
-import org.telegram.telegrambots.meta.api.objects.User;
+import org.telegram.telegrambots.meta.api.objects.*;
+import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMemberBanned;
+import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMemberMember;
 import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
 import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScope;
 import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeAllGroupChats;
@@ -32,17 +31,17 @@ public class SecretMovieBot extends TelegramLongPollingCommandBot {
     private final UserService userService;
     private final StickerService stickerService;
 
-    private final OnJoin onJoin;
+    private final JoinUser joinUser;
     private final OnGroupSent onGroupSent;
     private final OnMovieSent onMovieSent;
 
     private final OnVoteSent onVoteSent;
 
-    public SecretMovieBot(UserService userService, StickerService stickerService, Start start, Stop stop, Join join, Vote vote, CreateRandom createRandom, CreateSimpleVote createSimpleVote, CreateBalancedVote createBalancedVote, OnJoin onJoin, OnGroupSent onGroupSent, OnMovieSent onMovieSent, OnVoteSent onVoteSent) throws TelegramApiException {
+    public SecretMovieBot(UserService userService, StickerService stickerService, Start start, Stop stop, Join join, Vote vote, CreateRandom createRandom, CreateSimpleVote createSimpleVote, CreateBalancedVote createBalancedVote, JoinUser joinUser, OnGroupSent onGroupSent, OnMovieSent onMovieSent, OnVoteSent onVoteSent) throws TelegramApiException {
         super(new DefaultBotOptions(), true);
         this.userService = userService;
         this.stickerService = stickerService;
-        this.onJoin = onJoin;
+        this.joinUser = joinUser;
         this.onGroupSent = onGroupSent;
         this.onMovieSent = onMovieSent;
         this.onVoteSent = onVoteSent;
@@ -82,8 +81,68 @@ public class SecretMovieBot extends TelegramLongPollingCommandBot {
     }
 
     @Override
-    public void processNonCommandUpdate(Update update) {
+    public void onUpdatesReceived(List<Update> updates) {
+        updates.forEach(update -> {
+            try {
+                preprocessUpdate(update);
+            } catch (Exception e) {
+                System.out.println("Updated preprocess failed: " + e);
+            }
+        });
+        super.onUpdatesReceived(updates);
+    }
 
+    private void preprocessUpdate(Update update) {
+        if (update.hasChatJoinRequest()) {
+            ChatJoinRequest chatJoinRequest = update.getChatJoinRequest();
+            User user = chatJoinRequest.getUser();
+            Chat chat = chatJoinRequest.getChat();
+            System.out.println(
+                    MessageFormat.format("User {0} wants to join chat {1}", user.getFirstName(), chat.getTitle()));
+            return;
+        }
+        if (update.hasChatMember()) {
+            ChatMemberUpdated memberUpdated = update.getChatMember();
+            User oldUser = memberUpdated.getOldChatMember().getUser();
+            String oldStatus = memberUpdated.getOldChatMember().getStatus();
+            User newUser = memberUpdated.getNewChatMember().getUser();
+            String newStatus = memberUpdated.getNewChatMember().getStatus();
+            Chat chat = memberUpdated.getChat();
+            System.out.println(MessageFormat.format("User {0} ({1}) changed. New user {2} ({3}) in chat {4}",
+                    oldUser.getFirstName(), oldStatus, newUser.getFirstName(), newStatus,
+                    chat.getFirstName() == null ? chat.getTitle() : chat.getFirstName()));
+            return;
+        }
+        if (update.hasMyChatMember()) {
+            // bot is blocked/unblocked by the user
+            ChatMemberUpdated memberUpdated = update.getMyChatMember();
+            User newUser = memberUpdated.getNewChatMember().getUser();
+            String newStatus = memberUpdated.getNewChatMember().getStatus();
+            // verify it is the movie bot
+            if (newUser.getUserName().equals(getBotUsername())) {
+                if (newStatus.equals(ChatMemberBanned.STATUS)) {
+                    userService.deletePrivateChat(memberUpdated.getChat().getId());
+                } else if (newStatus.equals(ChatMemberMember.STATUS)) {
+                    // unfortunately we have no info about the user here
+                }
+            }
+            System.out.println(
+                    MessageFormat.format("MyChatMember. New user {0} ({1}) in chat {2}", newUser.getUserName(),
+                            newStatus, memberUpdated.getChat().getId()));
+            return;
+        }
+        if (update.hasMessage()) {
+            Message message = update.getMessage();
+            if (Utils.isUser(message.getChat())) {
+                // private message from the user. Let's process it.
+                var user = message.getFrom();
+                userService.updatePrivateChat(user, message.getChat());
+            }
+        }
+    }
+
+    @Override
+    public void processNonCommandUpdate(Update update) {
         if (update.hasMessage()) {
             Message message = update.getMessage();
             if (Utils.isUser(message.getChat())) {
@@ -117,7 +176,7 @@ public class SecretMovieBot extends TelegramLongPollingCommandBot {
                 } else if (userState.get().isPendingVoteStart()) {
                     System.out.println(MessageFormat.format("User {0} is in pending vote state. Ignore this message",
                             user.getFirstName()));
-                } else if (userState.get().isPendingSimpleVote()) {
+                } else if (userState.get().isPendingVote()) {
                     this.onVoteSent.execute(this, userState.get(), message, null);
                 } else {
                     //the user is done
@@ -133,7 +192,7 @@ public class SecretMovieBot extends TelegramLongPollingCommandBot {
             if (callbackQuery.getData().equals("btn_join")) {
                 User user = callbackQuery.getFrom();
                 Long chatId = callbackQuery.getMessage().getChatId();
-                this.onJoin.execute(this, user, chatId, new String[]{callbackQuery.getId()});
+                this.joinUser.execute(this, user, chatId, new String[]{callbackQuery.getId()});
             }
 
         }

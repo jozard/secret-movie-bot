@@ -16,7 +16,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import static org.springframework.util.StringUtils.capitalize;
 
 @Component
-public class OnJoin extends Action {
+public class JoinUser extends Action {
 
     public static final String WAIT_FOR_THE_START_MESSAGE = "{0}, you have already joined the pitch. Wait for the start.";
     public static final String WAIT_FOR_THE_START_MESSAGE_ESCAPED = "{0}, you have already joined the pitch\\. Wait for the start\\.";
@@ -26,7 +26,7 @@ public class OnJoin extends Action {
 
     private final MessageService messageService;
 
-    public OnJoin(UserService userService, StickerService stickerService, MessageService messageService) {
+    public JoinUser(UserService userService, StickerService stickerService, MessageService messageService) {
         this.userService = userService;
         this.stickerService = stickerService;
         this.messageService = messageService;
