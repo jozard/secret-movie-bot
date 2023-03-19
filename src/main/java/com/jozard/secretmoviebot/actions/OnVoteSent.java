@@ -1,16 +1,15 @@
 package com.jozard.secretmoviebot.actions;
 
+import com.jozard.secretmoviebot.MessageService;
 import com.jozard.secretmoviebot.Utils;
 import com.jozard.secretmoviebot.users.Movie;
 import com.jozard.secretmoviebot.users.PitchStateMachine;
 import com.jozard.secretmoviebot.users.UserService;
 import org.springframework.stereotype.Component;
-import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove;
 import org.telegram.telegrambots.meta.bots.AbsSender;
-import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.text.MessageFormat;
 import java.util.Comparator;
@@ -20,7 +19,6 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import static org.springframework.util.StringUtils.capitalize;
 
@@ -28,10 +26,9 @@ import static org.springframework.util.StringUtils.capitalize;
 public class OnVoteSent extends PrivateChatAction {
 
     private static final String DELIMITER = System.getProperty("line.separator");
-    private final UserService userService;
 
-    public OnVoteSent(UserService userService) {
-        this.userService = userService;
+    public OnVoteSent(UserService userService, MessageService messageService) {
+        super(messageService, userService);
     }
 
     @Override
@@ -46,8 +43,7 @@ public class OnVoteSent extends PrivateChatAction {
         if (List.of(UserService.PitchType.SIMPLE_VOTE, UserService.PitchType.BALANCED_VOTE).contains(
                 targetGroup.get().getPitchType())) {
 
-            this.reply(absSender, message.getChatId(), response -> {
-                response.enableMarkdown(true);
+            this.reply(absSender, message.getChatId(), privateChatResponse -> {
                 Optional<Movie> matchingMovie = targetGroup.get().getMovies().stream().filter(
                         movie -> movie.getTitle().equals(message.getText())).findFirst();
                 User user = state.getUser();
@@ -56,38 +52,26 @@ public class OnVoteSent extends PrivateChatAction {
 
                     targetGroup.get().addVote(matchingMovie.get(), user);
 
-                    SendMessage groupNotification = new SendMessage();
-                    groupNotification.setChatId(String.valueOf(targetGroup.get().getChatId()));
-                    groupNotification.enableMarkdown(true);
-
                     //check if all are voted
                     List<UserService.Group.VoteResult> votes = targetGroup.get().getVotes();
                     Set<User> votedUsers = votes.stream().flatMap(item -> item.getVoted().stream()).collect(
                             Collectors.toSet());
 
+                    long chatId = targetGroup.get().getChatId();
+                    messageService.send(absSender, chatId,
+                            MessageFormat.format("*{0}* has voted", capitalize(user.getFirstName())));
                     if (votedUsers.size() == targetGroup.get().getUsers().size()) {
                         // show result in the group
 
-                        SendMessage extraGroupNotification = new SendMessage();
-                        extraGroupNotification.setChatId(String.valueOf(targetGroup.get().getChatId()));
-                        extraGroupNotification.enableMarkdown(true);
-                        extraGroupNotification.setText(
-                                MessageFormat.format("*{0}* has voted", capitalize(user.getFirstName())));
-                        try {
-                            absSender.execute(extraGroupNotification);
-                        } catch (TelegramApiException e) {
-                            e.printStackTrace();
-                        }
                         List<UserService.Group.VoteResult> sortedVoteResults = votes.stream().sorted(
                                 Comparator.comparing(voteResult -> voteResult.getVoted().size(),
                                         Comparator.reverseOrder())).toList();
-                        String hiddenContent;
-                        String visibleContent = "";
                         if (UserService.PitchType.BALANCED_VOTE.equals(targetGroup.get().getPitchType())) {
 
                             // send vote results, they can be visible
-                            visibleContent = sortedVoteResults.stream().map(Utils::getVoteSummary).collect(
-                                    Collectors.joining(DELIMITER));
+                            String visibleContent = sortedVoteResults.stream().map(
+                                    item -> Utils.getVoteSummary(item, false)).collect(Collectors.joining(DELIMITER));
+                            messageService.send(absSender, chatId, visibleContent);
 
                             // generate list of weights
                             List<Integer> weights = votes.stream().flatMapToInt(
@@ -96,39 +80,28 @@ public class OnVoteSent extends PrivateChatAction {
                             int index = ThreadLocalRandom.current().nextInt(0, weights.size());
                             UserService.Group.VoteResult winner = votes.get(weights.get(index));
 
-                            hiddenContent = MessageFormat.format("Hurray\\! The chosen one has arrived\\!{1}*||{0}||*",
-                                    winner.getMovie().getTitle(), DELIMITER);
+                            messageService.send(absSender, chatId,
+                                    MessageFormat.format("Hurray\\! The chosen one has arrived\\!{1}*||{0}||*",
+                                            Utils.escapeMarkdownV2Content(winner.getMovie().getTitle()), DELIMITER),
+                                    MessageService.MARKDOWN_V2);
                         } else {
                             // simple vote
-                            hiddenContent = sortedVoteResults.stream().map(Utils::getVoteSummary).collect(
-                                    Collectors.joining(DELIMITER));
+                            messageService.send(absSender, chatId, "||" + sortedVoteResults.stream().map(
+                                    item -> Utils.getVoteSummary(item, true)).collect(
+                                    Collectors.joining(DELIMITER)) + "||", MessageService.MARKDOWN_V2);
                         }
 
-                        groupNotification.setText(
-                                Stream.of(visibleContent, DELIMITER, "||" + hiddenContent + "||").collect(
-                                        Collectors.joining(DELIMITER)));
-                        groupNotification.setParseMode("MarkdownV2");
-
-                        userService.remove(targetGroup.get().getChatId());
-
-                    } else {
-                        groupNotification.setText(
-                                MessageFormat.format("*{0}* has voted", capitalize(user.getFirstName())));
+                        userService.remove(chatId);
                     }
 
-                    try {
-                        absSender.execute(groupNotification);
-                    } catch (TelegramApiException e) {
-                        e.printStackTrace();
-                    }
-                    response.setText(MessageFormat.format(
+                    privateChatResponse.setText(MessageFormat.format(
                             "Your vote for the *{0}* movie is registered for *{1}* group. If you want to select a movie for another group chat, send me the /start command",
                             message.getText(), targetGroup.get().getChatName()));
                     ReplyKeyboardRemove keyboardRemove = ReplyKeyboardRemove.builder().removeKeyboard(true).build();
-                    response.setReplyMarkup(keyboardRemove);
+                    privateChatResponse.setReplyMarkup(keyboardRemove);
                 } else {
-                    //response wrong vote
-                    response.setText(MessageFormat.format(
+                    //privateChatResponse wrong vote
+                    privateChatResponse.setText(MessageFormat.format(
                             "Movie *{0}* Not found. You can use the buttons below to vote for a movie",
                             message.getText(), targetGroup.get().getChatName()));
                 }

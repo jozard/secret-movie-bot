@@ -1,17 +1,17 @@
 package com.jozard.secretmoviebot.actions;
 
+import com.jozard.secretmoviebot.MessageService;
 import com.jozard.secretmoviebot.StickerService;
+import com.jozard.secretmoviebot.Utils;
 import com.jozard.secretmoviebot.users.Movie;
 import com.jozard.secretmoviebot.users.PitchStateMachine;
 import com.jozard.secretmoviebot.users.UserService;
 import org.springframework.stereotype.Component;
-import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.bots.AbsSender;
-import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.text.MessageFormat;
 import java.util.ArrayList;
@@ -26,11 +26,10 @@ import static org.springframework.util.StringUtils.capitalize;
 public class OnMovieSent extends PrivateChatAction {
 
     private static final String DELIMITER = System.getProperty("line.separator");
-    private final UserService userService;
     private final StickerService stickerService;
 
-    public OnMovieSent(UserService userService, StickerService stickerService) {
-        this.userService = userService;
+    public OnMovieSent(MessageService messageService, UserService userService, StickerService stickerService) {
+        super(messageService, userService);
         this.stickerService = stickerService;
     }
 
@@ -48,47 +47,42 @@ public class OnMovieSent extends PrivateChatAction {
             // movie title sent
             System.out.println(MessageFormat.format(
                     "The user {0} is pending movie name in chat ID =  {1}. We assume it is a movie in the message",
-                    state.getUser().getUserName(), state.getCurrentGroup().orElseThrow()));
+                    state.getUser().getFirstName(), state.getCurrentGroup().orElseThrow()));
 
             String chosenMovie = message.getText();
 
             Movie movie = state.setMovie(chosenMovie);
             targetGroup.get().addMovie(movie);
 
-            SendMessage groupNotification = new SendMessage();
-            groupNotification.setChatId(String.valueOf(targetGroup.get().getChatId()));
-            groupNotification.enableMarkdown(true);
-            groupNotification.setText(
+            long groupChatId = targetGroup.get().getChatId();
+            messageService.send(absSender, groupChatId,
                     MessageFormat.format("*{0}* has selected a movie", capitalize(state.getUser().getFirstName())));
             if (targetGroup.get().getPitchType() == UserService.PitchType.RANDOM) {
                 state.done();
                 if (targetGroup.get().isAllMoviesSelected()) {
 
-                    SendMessage extraGroupNotification = new SendMessage();
-                    extraGroupNotification.setChatId(String.valueOf(targetGroup.get().getChatId()));
-                    extraGroupNotification.enableMarkdown(true);
-                    extraGroupNotification.setText(MessageFormat.format("*{0}* has selected a movie",
-                            capitalize(state.getUser().getFirstName())));
-                    try {
-                        absSender.execute(extraGroupNotification);
-                    } catch (TelegramApiException e) {
-                        e.printStackTrace();
-                    }
                     List<String> movies = targetGroup.get().getMovies().stream().map(Movie::getTitle).toList();
                     int index = ThreadLocalRandom.current().nextInt(0, movies.size());
 
                     String visibleContent = targetGroup.get().getMovies().stream().map(
-                            item -> MessageFormat.format("*{0}* by {1}", item.getTitle(), item.getOwner())).collect(
-                            Collectors.joining(DELIMITER));
+                            item -> MessageFormat.format("*{0}* by {1}", item.getTitle(),
+                                    item.getOwner().getFirstName())).collect(Collectors.joining(DELIMITER));
 
-                    groupNotification.setText(String.join(DELIMITER, visibleContent, DELIMITER,
+                    String spoilerContent = String.join(DELIMITER,
                             MessageFormat.format("Hurray\\! The chosen one has arrived\\!{1}*||{0}||*",
-                                    movies.get(index), DELIMITER)));
-                    groupNotification.setParseMode("MarkdownV2");
-                    userService.remove(targetGroup.get().getChatId());
-                } else {
+                                    Utils.escapeMarkdownV2Content(movies.get(index)), DELIMITER));
+
+                    messageService.send(absSender, groupChatId, visibleContent);
+                    messageService.send(absSender, groupChatId, spoilerContent, MessageService.MARKDOWN_V2);
+                    userService.remove(groupChatId);
+
                     response.setText(MessageFormat.format(
-                            "Great! The *{0}* movie is registered for *{1}* group. If you want to select a movie for another group chat, send me the /start command",
+                            "Great! The *{0}* movie is registered and everyone in the group is done. Switch to the group chat to check the result.",
+                            chosenMovie, targetGroup.get().getChatName()));
+                } else {
+                    response.setText(MessageFormat.format("""
+                                    Great! The *{0}* movie is registered for *{1}* group. Wait for the others to finish.
+                                    If you want to select a movie for another group chat, send me the /start command.""",
                             chosenMovie, targetGroup.get().getChatName()));
                 }
 
@@ -98,23 +92,8 @@ public class OnMovieSent extends PrivateChatAction {
                 if (targetGroup.get().isAllMoviesSelected()) {
                     // everyone selected -> vote
                     response.setText(MessageFormat.format(
-                            "Great! The *{0}* movie is registered and everyone in the group is done. Send me the /vote command",
+                            "Great! The *{0}* movie is registered and everyone in the group is done. Send me the /vote command here.",
                             chosenMovie, targetGroup.get().getChatName()));
-
-                    SendMessage extraGroupNotification = new SendMessage();
-                    extraGroupNotification.setChatId(String.valueOf(targetGroup.get().getChatId()));
-                    extraGroupNotification.enableMarkdown(true);
-                    extraGroupNotification.setText(MessageFormat.format("*{0}* has selected a movie",
-                            capitalize(state.getUser().getFirstName())));
-                    try {
-                        absSender.execute(extraGroupNotification);
-                    } catch (TelegramApiException e) {
-                        e.printStackTrace();
-                    }
-
-                    groupNotification.setText("""
-                            Amazing! The movie list is ready now!
-                            Click the button below or go to a private chat with me and then execute the *vote* command.""");
 
                     InlineKeyboardButton voteButton = InlineKeyboardButton.builder().text("Go to vote").url(
                             "https://t.me/secret_movie_bot").build();
@@ -122,23 +101,21 @@ public class OnMovieSent extends PrivateChatAction {
                     List<InlineKeyboardButton> keyboardRow = new ArrayList<>();
                     keyboardRow.add(voteButton);
                     keyboardMarkup.setKeyboard(List.of(keyboardRow));
-                    groupNotification.enableMarkdown(false);
-                    groupNotification.setReplyMarkup(keyboardMarkup);
+                    messageService.send(absSender, groupChatId, """
+                                    Amazing! The movie list is ready now!
+                                    Click the button below or go to a private chat with me and then execute the *vote* command.""",
+                            keyboardMarkup);
                 } else {
                     response.setText(MessageFormat.format(
-                            "Great! The *{0}* movie is registered. Wait until everyone in the *{1}* group selects a movie and send me the /vote command",
+                            "Great! The *{0}* movie is registered. Wait for the others to finish and then send me the /vote command here.",
                             chosenMovie, targetGroup.get().getChatName()));
                 }
+            } else {
+                throw new IllegalStateException(targetGroup.get().getPitchType() + " pitch type is not supported!");
             }
-            response.enableMarkdown(true);
             ReplyKeyboardRemove keyboardRemove = ReplyKeyboardRemove.builder().removeKeyboard(true).build();
             response.setReplyMarkup(keyboardRemove);
 
-            try {
-                absSender.execute(groupNotification);
-            } catch (TelegramApiException e) {
-                e.printStackTrace();
-            }
         });
 
     }

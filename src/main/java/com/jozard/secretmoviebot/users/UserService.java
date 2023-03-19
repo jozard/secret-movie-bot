@@ -48,7 +48,7 @@ public class UserService {
         if (existingUser.isPresent()) {
             throw new AdminExistsException(
                     MessageFormat.format("{1} is already leading a pitch in the chat {0}", chatId,
-                            admin.getUserName()));
+                            admin.getFirstName()));
         }
         if (groups.containsKey(chatId)) {
             throw new PitchExistsException(MessageFormat.format("Pitch is already started in {0}", chatName));

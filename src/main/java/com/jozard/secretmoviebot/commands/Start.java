@@ -1,8 +1,9 @@
 package com.jozard.secretmoviebot.commands;
 
 
-import com.jozard.secretmoviebot.Utils;
+import com.jozard.secretmoviebot.MessageService;
 import com.jozard.secretmoviebot.StickerService;
+import com.jozard.secretmoviebot.Utils;
 import com.jozard.secretmoviebot.jobs.GroupCleanup;
 import com.jozard.secretmoviebot.users.AdminExistsException;
 import com.jozard.secretmoviebot.users.UserService;
@@ -10,7 +11,6 @@ import com.vdurmont.emoji.EmojiParser;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.extensions.bots.commandbot.commands.BotCommand;
-import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
@@ -19,7 +19,6 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.bots.AbsSender;
-import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.text.MessageFormat;
 import java.time.Instant;
@@ -38,12 +37,14 @@ public class Start extends BotCommand {
     public static final String DESCRIPTION = """
             With this command you can start the Bot.
             Starting the bot in a group chat registers a movie choosing for users joined from this group.""";
+    private final MessageService messageService;
     private final UserService userService;
     private final ThreadPoolTaskScheduler scheduler;
     private final StickerService stickerService;
 
-    public Start(UserService userService, ThreadPoolTaskScheduler scheduler, StickerService stickerService) {
+    public Start(MessageService messageService, UserService userService, ThreadPoolTaskScheduler scheduler, StickerService stickerService) {
         super(NAME, DESCRIPTION);
+        this.messageService = messageService;
         this.userService = userService;
         this.scheduler = scheduler;
         this.stickerService = stickerService;
@@ -61,17 +62,9 @@ public class Start extends BotCommand {
                 try {
                     group = userService.start(chatId, chat.getTitle(), user);
                 } catch (AdminExistsException e) {
-                    SendMessage response = new SendMessage();
-                    response.setChatId(String.valueOf(chatId));
-                    response.setText(MessageFormat.format(
-                            "{0}, you are already an admin in another movie choosing",
-                            capitalize(user.getFirstName())));
-                    try {
-
-                        absSender.execute(response);
-                    } catch (TelegramApiException telegramApiException) {
-                        e.printStackTrace();
-                    }
+                    messageService.send(absSender, chatId,
+                            MessageFormat.format("{0}, you are already an admin in another movie choosing",
+                                    capitalize(user.getFirstName())));
                     return;
                 }
                 ScheduledFuture<?> cleanupTask = scheduler.schedule(new GroupCleanup(chatId, userService, absSender),
@@ -79,76 +72,51 @@ public class Start extends BotCommand {
                 group.setCleanupTask(cleanupTask);
 
             } else {
-                SendMessage response = new SendMessage();
-                response.setChatId(String.valueOf(chatId));
-                response.setText(EmojiParser.parseToUnicode(MessageFormat.format(
+                stickerService.sendSticker(absSender, chatId, NO_KIPESH_STICKER_ID);
+                messageService.send(absSender, chatId, EmojiParser.parseToUnicode(MessageFormat.format(
                         "{0}, do not abuse, the movie choosing has already been started :stuck_out_tongue_winking_eye:",
                         capitalize(user.getFirstName()))));
-                try {
-                    stickerService.sendSticker(absSender, chatId, NO_KIPESH_STICKER_ID);
-                    absSender.execute(response);
-                } catch (TelegramApiException e) {
-                    e.printStackTrace();
-                }
                 return;
             }
         }
 
-        System.out.println(MessageFormat.format("User {0} starts bot in {1} chat {2}", user.getUserName(),
+        System.out.println(MessageFormat.format("User {0} starts bot in {1} chat {2}", user.getFirstName(),
                 chat.isGroupChat() ? "group" : "private", chat.getId()));
-        SendMessage response = new SendMessage();
-        response.setChatId(chat.getId().toString());
 
         if (isGroup) {
             InlineKeyboardMarkup keyboardMarkup = new InlineKeyboardMarkup();
             List<InlineKeyboardButton> keyboardRow = new ArrayList<>();
-            response.setText("Let the movie choosing begin! Click the `Join` button to participate.");
             // someone started the bot in the group
-            InlineKeyboardButton joinButton = InlineKeyboardButton.builder().text("Join")
-                    .callbackData("btn_join") // check if we get it
+            InlineKeyboardButton joinButton = InlineKeyboardButton.builder().text("Join").callbackData(
+                            "btn_join") // check if we get it
                     .build();
 
             keyboardRow.add(joinButton);
             keyboardMarkup.setKeyboard(List.of(keyboardRow));
-            response.enableMarkdown(true);
-            response.setReplyMarkup(keyboardMarkup);
-
+            messageService.send(absSender, chatId,
+                    "Let the movie choosing begin! Click the `Join` button to participate.", keyboardMarkup);
 
         } else if (Utils.isUser(chat)) {
 
             List<KeyboardButton> groupButtons = userService.getGroupsAvailableToStartPitch(user).stream().map(
                     group -> KeyboardButton.builder().text(group.getChatName()).build()).toList();
             if (groupButtons.isEmpty()) {
-                response.setText(
+                messageService.send(absSender, chatId,
                         "Cannot start. Either you are done with all pitches, a bot is waiting for a movie title from you, or no pitch is created in your groups.");
             } else {
                 userService.getPitching(user).orElseThrow().start();
-                response.setText("Send me a group to choose movies. You can use the button(s) below.");
                 List<KeyboardRow> keyboardRows = groupButtons.stream().map(button -> {
                     KeyboardRow row = new KeyboardRow();
                     row.add(button);
                     return row;
                 }).toList();
-                ReplyKeyboardMarkup replyKeyboardMarkup = ReplyKeyboardMarkup
-                        .builder()
-                        .keyboard(keyboardRows)
-                        .resizeKeyboard(true)
-                        .oneTimeKeyboard(true)
-                        .build();
-                response.setReplyMarkup(replyKeyboardMarkup);
+                ReplyKeyboardMarkup replyKeyboardMarkup = ReplyKeyboardMarkup.builder().keyboard(
+                        keyboardRows).resizeKeyboard(true).oneTimeKeyboard(true).build();
+                messageService.send(absSender, chatId,
+                        "Send me a group to choose movies. You can use the button(s) below.", replyKeyboardMarkup);
             }
 
-            response.enableMarkdown(true);
-
-        } else {
-            return;
         }
 
-
-        try {
-            absSender.execute(response);
-        } catch (TelegramApiException e) {
-            e.printStackTrace();
-        }
     }
 }

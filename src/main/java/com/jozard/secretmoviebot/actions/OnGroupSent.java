@@ -1,5 +1,6 @@
 package com.jozard.secretmoviebot.actions;
 
+import com.jozard.secretmoviebot.MessageService;
 import com.jozard.secretmoviebot.StickerService;
 import com.jozard.secretmoviebot.users.PitchStateMachine;
 import com.jozard.secretmoviebot.users.UserService;
@@ -18,11 +19,10 @@ import static com.jozard.secretmoviebot.StickerService.NA_SVYAZI_STICKER_ID;
 @Component
 public class OnGroupSent extends PrivateChatAction {
 
-    private final UserService userService;
     private final StickerService stickerService;
 
-    public OnGroupSent(UserService userService, StickerService stickerService) {
-        this.userService = userService;
+    public OnGroupSent(MessageService messageService, UserService userService, StickerService stickerService) {
+        super(messageService, userService);
         this.stickerService = stickerService;
     }
 
@@ -32,7 +32,7 @@ public class OnGroupSent extends PrivateChatAction {
             User user = state.user();
             System.out.println(MessageFormat.format(
                     "There are only groups the user {0} is in JOINED state. We assume the message contains the group name and will look for it",
-                    user.getUserName()));
+                    user.getId()));
             // Bot is waiting for a group selection. Let's check if the answer matches any group
             List<UserService.Group> userGroups = userService.getAllGroups(user);
             Optional<UserService.Group> targetGroup = userGroups.stream().filter(
@@ -52,7 +52,6 @@ public class OnGroupSent extends PrivateChatAction {
                         "Group *{0}* not found or movie choosing is not registered in it. Try using reply buttons below.",
                         message.getText()));
             }
-            response.enableMarkdown(true);
         });
     }
 }

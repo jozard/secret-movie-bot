@@ -20,7 +20,6 @@ import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScope
 import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeAllGroupChats;
 import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeAllPrivateChats;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
-import org.telegram.telegrambots.meta.exceptions.TelegramApiRequestException;
 
 import java.text.MessageFormat;
 import java.util.ArrayList;
@@ -91,25 +90,25 @@ public class SecretMovieBot extends TelegramLongPollingCommandBot {
                 // private message from the user. Let's process it.
                 var user = message.getFrom();
                 System.out.println(
-                        MessageFormat.format("Message from {0}: {1}", user.getUserName(), message.getText()));
+                        MessageFormat.format("Message from {0}: {1}", user.getFirstName(), message.getText()));
                 List<UserService.Group> userGroups = userService.getAllGroups(user);
                 if (userGroups.size() == 0) {
-                    System.out.println(
-                            MessageFormat.format("User {0} has not joined any group pitch. Ignore messages from them",
-                                    user.getUserName()));
+                    System.out.println(MessageFormat.format(
+                            "User {0}({1}) has not joined any group pitch. Ignore messages from them", user.getId(),
+                            user.getFirstName()));
                     return;
                 }
                 Optional<PitchStateMachine> userState = userService.getPitching(user);
                 if (userState.isEmpty()) {
                     System.out.println(
-                            MessageFormat.format("User {0} has not started any pitching yet. Ignore this message",
-                                    user.getUserName()));
+                            MessageFormat.format("User {0}({1})  has not started any pitching yet. Ignore this message",
+                                    user.getId(), user.getFirstName()));
                     return;
                 }
                 if (userState.get().isPendingStart()) {
                     System.out.println(MessageFormat.format(
-                            "User {0} has not run start command in private chat. Ignore this message",
-                            user.getUserName()));
+                            "User {0}({1})  has not run start command in private chat. Ignore this message",
+                            user.getId(), user.getFirstName()));
                 } else if (userState.get().isPendingCurrentGroup()) {
                     this.onGroupSent.execute(this, userState.get(), message, null);
 
@@ -117,13 +116,13 @@ public class SecretMovieBot extends TelegramLongPollingCommandBot {
                     this.onMovieSent.execute(this, userState.get(), message, null);
                 } else if (userState.get().isPendingVoteStart()) {
                     System.out.println(MessageFormat.format("User {0} is in pending vote state. Ignore this message",
-                            user.getUserName()));
+                            user.getFirstName()));
                 } else if (userState.get().isPendingSimpleVote()) {
                     this.onVoteSent.execute(this, userState.get(), message, null);
                 } else {
                     //the user is done
-                    System.out.println(
-                            MessageFormat.format("User {0} is in DONE state. Ignore this message", user.getUserName()));
+                    System.out.println(MessageFormat.format("User {0} is in DONE state. Ignore this message",
+                            user.getFirstName()));
                 }
             } else {
                 // ignore messages in group chats
@@ -142,7 +141,7 @@ public class SecretMovieBot extends TelegramLongPollingCommandBot {
 
     @Override
     public String getBotToken() {
-            return ""; // use your bot token here
+        return System.getenv("SECRET_MOVIE_BOT_TOKEN");
     }
 
     @Override
@@ -154,11 +153,5 @@ public class SecretMovieBot extends TelegramLongPollingCommandBot {
     public String getBaseUrl() {
         return super.getBaseUrl();
     }
-
-    @Override
-    public void clearWebhook() throws TelegramApiRequestException {
-
-    }
-
 
 }

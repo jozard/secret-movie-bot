@@ -108,10 +108,8 @@ public class PitchStateMachine {
 
     public enum UserState {
         PENDING_START,
-
         PENDING_CURRENT_GROUP,
         PENDING_MOVIE_NAME,
-
         MOVIE_NAME_SET,
         PENDING_VOTE,
         PENDING_VOTE_START,

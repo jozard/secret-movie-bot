@@ -2,6 +2,7 @@ package com.jozard.secretmoviebot.commands;
 
 
 import com.jozard.secretmoviebot.actions.OnJoin;
+import com.jozard.secretmoviebot.users.UserService;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.User;
@@ -16,8 +17,8 @@ public class Join extends GroupCommand {
             After joining wait until the pitch admin starts the pitch.""";
     private final OnJoin onJoin;
 
-    public Join(OnJoin onJoin) {
-        super(NAME, DESCRIPTION);
+    public Join(UserService userService, OnJoin onJoin) {
+        super(userService, NAME, DESCRIPTION);
         this.onJoin = onJoin;
     }
 
