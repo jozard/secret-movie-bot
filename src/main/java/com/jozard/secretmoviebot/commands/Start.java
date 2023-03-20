@@ -4,11 +4,13 @@ package com.jozard.secretmoviebot.commands;
 import com.jozard.secretmoviebot.MessageService;
 import com.jozard.secretmoviebot.StickerService;
 import com.jozard.secretmoviebot.Utils;
+import com.jozard.secretmoviebot.actions.RequestDescription;
 import com.jozard.secretmoviebot.actions.RequestMovie;
 import com.jozard.secretmoviebot.actions.RequestTargetGroup;
 import com.jozard.secretmoviebot.actions.RequestVote;
 import com.jozard.secretmoviebot.jobs.GroupCleanup;
 import com.jozard.secretmoviebot.users.AdminExistsException;
+import com.jozard.secretmoviebot.users.Movie;
 import com.jozard.secretmoviebot.users.PitchStateMachine;
 import com.jozard.secretmoviebot.users.UserService;
 import com.vdurmont.emoji.EmojiParser;
@@ -47,8 +49,9 @@ public class Start extends BotCommand {
     private final RequestTargetGroup requestTargetGroup;
     private final RequestMovie requestMovie;
     private final RequestVote requestVote;
+    private final RequestDescription requestDescription;
 
-    public Start(MessageService messageService, UserService userService, ThreadPoolTaskScheduler scheduler, StickerService stickerService, RequestTargetGroup requestTargetGroup, RequestMovie requestMovie, RequestVote requestVote) {
+    public Start(MessageService messageService, UserService userService, ThreadPoolTaskScheduler scheduler, StickerService stickerService, RequestTargetGroup requestTargetGroup, RequestMovie requestMovie, RequestDescription requestDescription, RequestVote requestVote) {
         super(NAME, DESCRIPTION);
         this.messageService = messageService;
         this.userService = userService;
@@ -56,6 +59,7 @@ public class Start extends BotCommand {
         this.stickerService = stickerService;
         this.requestTargetGroup = requestTargetGroup;
         this.requestMovie = requestMovie;
+        this.requestDescription = requestDescription;
         this.requestVote = requestVote;
     }
 
@@ -114,6 +118,11 @@ public class Start extends BotCommand {
                 } else if (state.isPendingMovie()) {
                     UserService.Group currentGroup = state.getCurrentGroup().orElseThrow();
                     requestMovie.execute(absSender, user, chatId, new String[]{currentGroup.getChatName()});
+                } else if (state.isPendingDescription()) {
+                    Movie userMovie = userService.getGroup(
+                            state.getCurrentGroup().orElseThrow().getChatId()).orElseThrow().getMovie(
+                            user).orElseThrow();
+                    requestDescription.execute(absSender, user, chatId, new String[]{userMovie.getTitle()});
                 } else if (state.isPendingVoteStart()) {
                     // waiting; do nothing
                 } else if (state.isPendingVote()) {

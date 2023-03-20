@@ -1,6 +1,7 @@
 package com.jozard.secretmoviebot.users;
 
 
+import com.jozard.secretmoviebot.config.ServiceConfig;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.User;
@@ -240,6 +241,10 @@ public class UserService {
         }
 
         public boolean isAllMoviesSelected() {
+            if (ServiceConfig.DESCRIPTION_ENABLED) {
+                return movies.size() == users.size() && movies.stream().noneMatch(
+                        movie -> movie.getDescription().isEmpty());
+            }
             return movies.size() == users.size();
         }
 
@@ -257,6 +262,10 @@ public class UserService {
 
         public void addMovie(Movie movie) {
             this.movies.add(movie);
+        }
+
+        public Optional<Movie> getMovie(User user) {
+            return movies.stream().filter(movie -> movie.getOwner().equals(user)).findFirst();
         }
 
         public Set<Movie> getMovies() {

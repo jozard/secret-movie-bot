@@ -74,6 +74,7 @@ public class OnVoteSent extends PrivateChatListener {
                         List<UserService.Group.VoteResult> sortedVoteResults = votes.stream().sorted(
                                 Comparator.comparing(voteResult -> voteResult.getVoted().size(),
                                         Comparator.reverseOrder())).toList();
+                        // TODO: add description to result summary
                         if (UserService.PitchType.BALANCED_VOTE.equals(targetGroup.get().getPitchType())) {
 
                             // send vote results, they can be visible

@@ -1,22 +1,20 @@
 package com.jozard.secretmoviebot.listeners;
 
 import com.jozard.secretmoviebot.MessageService;
-import com.jozard.secretmoviebot.StickerService;
 import com.jozard.secretmoviebot.Utils;
-import com.jozard.secretmoviebot.actions.RequestVote;
+import com.jozard.secretmoviebot.actions.RequestDescription;
+import com.jozard.secretmoviebot.actions.StartVoting;
+import com.jozard.secretmoviebot.config.ServiceConfig;
 import com.jozard.secretmoviebot.users.Movie;
 import com.jozard.secretmoviebot.users.PitchStateMachine;
 import com.jozard.secretmoviebot.users.UserService;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.User;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.bots.AbsSender;
 
 import java.text.MessageFormat;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
@@ -28,13 +26,13 @@ import static org.springframework.util.StringUtils.capitalize;
 public class OnMovieSent extends PrivateChatListener {
 
     private static final String DELIMITER = System.getProperty("line.separator");
-    private final StickerService stickerService;
-    private final RequestVote requestVote;
+    private final StartVoting startVoting;
+    private final RequestDescription requestDescription;
 
-    public OnMovieSent(MessageService messageService, UserService userService, StickerService stickerService, RequestVote requestVote) {
+    public OnMovieSent(MessageService messageService, UserService userService, StartVoting startVoting, RequestDescription requestDescription) {
         super(messageService, userService);
-        this.stickerService = stickerService;
-        this.requestVote = requestVote;
+        this.startVoting = startVoting;
+        this.requestDescription = requestDescription;
     }
 
     @Override
@@ -94,30 +92,26 @@ public class OnMovieSent extends PrivateChatListener {
 
         } else if (List.of(UserService.PitchType.SIMPLE_VOTE, UserService.PitchType.BALANCED_VOTE).contains(
                 targetGroup.get().getPitchType())) {
-            state.pendingVoteStart();
-            if (targetGroup.get().isAllMoviesSelected()) {
-                // everyone selected -> vote
-
-
-                InlineKeyboardButton voteButton = InlineKeyboardButton.builder().text("Go to vote").url(
-                        "https://t.me/secret_movie_bot").build();
-                InlineKeyboardMarkup keyboardMarkup = new InlineKeyboardMarkup();
-                List<InlineKeyboardButton> keyboardRow = new ArrayList<>();
-                keyboardRow.add(voteButton);
-                keyboardMarkup.setKeyboard(List.of(keyboardRow));
-                messageService.send(absSender, groupChatId, """
-                                Amazing! The movie list is ready now!
-                                Everyone can vote now. Click the button below or go to a private chat with me.""",
-                        keyboardMarkup);
-
-                response = MessageFormat.format(
-                        "Great! The *{0}* movie is registered and everyone in the group is done.", chosenMovie,
-                        targetGroup.get().getChatName());
-                requestVotes = true;
+            if (ServiceConfig.DESCRIPTION_ENABLED) {
+                state.pendingDescription();
+                // we need to send this before requesting the description; therefore having return in the end of the block
+                messageService.send(absSender, message.getChatId(),
+                        MessageFormat.format("Great! The *{0}* movie is registered.", chosenMovie,
+                                targetGroup.get().getChatName()));
+                this.requestDescription.execute(absSender, user, message.getChatId(), new String[]{chosenMovie});
+                return;
             } else {
-                response = MessageFormat.format(
-                        "Great! The *{0}* movie is registered. Wait for the others to finish and then send me the /vote command here.",
-                        chosenMovie, targetGroup.get().getChatName());
+                state.pendingVoteStart();
+                if (targetGroup.get().isAllMoviesSelected()) {
+                    response = MessageFormat.format(
+                            "Great! The *{0}* movie is registered and everyone in the group is done.", chosenMovie,
+                            targetGroup.get().getChatName());
+                    requestVotes = true;
+                } else {
+                    response = MessageFormat.format(
+                            "Great! The *{0}* movie is registered. Wait for the others to finish and then send me the /vote command here.",
+                            chosenMovie, targetGroup.get().getChatName());
+                }
             }
         } else {
             throw new IllegalStateException(targetGroup.get().getPitchType() + " pitch type is not supported!");
@@ -127,18 +121,7 @@ public class OnMovieSent extends PrivateChatListener {
 
         if (requestVotes) {
             // Request everyone for vote
-            targetGroup.get().getUsers().forEach(
-                    item -> userService.getPrivateChat(item.user()).ifPresentOrElse(privateChatId -> {
-                        PitchStateMachine userState = userService.getPitching(item.user()).orElseThrow();
-                        if (userState.isPendingVoteStart()) {
-                            userState.pendingVote();
-                        }
-                        requestVote.execute(absSender, item.user(), privateChatId, null);
-
-                    }, () -> System.out.println(
-                            "Private chat for " + item.user().getFirstName() + " is not registered! Should not happen for a user in pending vote state¬")));
-
-
+            startVoting.execute(absSender, null, groupChatId, null);
         }
     }
 }

@@ -49,8 +49,16 @@ public class PitchStateMachine {
         this.currentState = UserState.PENDING_VOTE_START;
     }
 
+    public void pendingDescription() {
+        this.currentState = UserState.PENDING_DESCRIPTION;
+    }
+
     public void movieSet() {
         this.currentState = UserState.MOVIE_NAME_SET;
+    }
+
+    public void descriptionSet() {
+        this.currentState = UserState.DESCRIPTION_SET;
     }
 
     public void done() {
@@ -96,11 +104,19 @@ public class PitchStateMachine {
         return this.currentState == UserState.PENDING_VOTE_START;
     }
 
+    public boolean isPendingDescription() {
+        return this.currentState == UserState.PENDING_DESCRIPTION;
+    }
+
     public enum UserState {
         PENDING_START,
         PENDING_CURRENT_GROUP,
         PENDING_MOVIE_NAME,
+
         MOVIE_NAME_SET,
+        PENDING_DESCRIPTION,
+
+        DESCRIPTION_SET,
         PENDING_VOTE,
         PENDING_VOTE_START,
     }

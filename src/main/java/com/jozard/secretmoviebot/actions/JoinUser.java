@@ -43,7 +43,6 @@ public class JoinUser extends Action {
                             MessageService.MARKDOWN_V2);
                 } else {
                     sendAnswerCallbackQuery(absSender, user.getFirstName(), arguments[0]);
-                    return;
                 }
             } catch (TelegramApiException e) {
                 e.printStackTrace();

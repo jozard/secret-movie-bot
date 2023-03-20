@@ -2,6 +2,7 @@ package com.jozard.secretmoviebot;
 
 import com.jozard.secretmoviebot.actions.JoinUser;
 import com.jozard.secretmoviebot.commands.*;
+import com.jozard.secretmoviebot.listeners.OnDescriptionSent;
 import com.jozard.secretmoviebot.listeners.OnGroupSent;
 import com.jozard.secretmoviebot.listeners.OnMovieSent;
 import com.jozard.secretmoviebot.listeners.OnVoteSent;
@@ -36,14 +37,16 @@ public class SecretMovieBot extends TelegramLongPollingCommandBot {
     private final OnMovieSent onMovieSent;
 
     private final OnVoteSent onVoteSent;
+    private final OnDescriptionSent onDescriptionSent;
 
-    public SecretMovieBot(UserService userService, StickerService stickerService, Start start, Stop stop, Join join, Vote vote, CreateRandom createRandom, CreateSimpleVote createSimpleVote, CreateBalancedVote createBalancedVote, JoinUser joinUser, OnGroupSent onGroupSent, OnMovieSent onMovieSent, OnVoteSent onVoteSent) throws TelegramApiException {
+    public SecretMovieBot(UserService userService, StickerService stickerService, Start start, Stop stop, Join join, Vote vote, CreateRandom createRandom, CreateSimpleVote createSimpleVote, CreateBalancedVote createBalancedVote, JoinUser joinUser, OnGroupSent onGroupSent, OnMovieSent onMovieSent, OnDescriptionSent onDescriptionSent, OnVoteSent onVoteSent) throws TelegramApiException {
         super(new DefaultBotOptions(), true);
         this.userService = userService;
         this.stickerService = stickerService;
         this.joinUser = joinUser;
         this.onGroupSent = onGroupSent;
         this.onMovieSent = onMovieSent;
+        this.onDescriptionSent = onDescriptionSent;
         this.onVoteSent = onVoteSent;
         List<BotCommand> privateChatCommands = new ArrayList<>();
         List<BotCommand> groupChatCommands = new ArrayList<>();
@@ -173,6 +176,8 @@ public class SecretMovieBot extends TelegramLongPollingCommandBot {
 
                 } else if (userState.get().isPendingMovie()) {
                     this.onMovieSent.execute(this, userState.get(), message, null);
+                } else if (userState.get().isPendingDescription()) {
+                    this.onDescriptionSent.execute(this, userState.get(), message, null);
                 } else if (userState.get().isPendingVoteStart()) {
                     System.out.println(MessageFormat.format("User {0} is in pending vote state. Ignore this message",
                             user.getFirstName()));
