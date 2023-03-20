@@ -10,6 +10,8 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 public class StickerService {
 
     public static final String SHALOM_STICKER_ID = "CAACAgIAAxkBAAEHlGBj3XodZzDxL0FiJNqvmqren-Rm1gACMwADLS3qC0H7YLyagH9ILgQ";
+    public static final String ESCUZMI_STICKER_ID = "CAACAgUAAxkBAAEINxtkGM13CzaThwhv22DRKzJfTuXxUgACYgIAAnCZOFecbpQSD3AavS8E";
+    public static final String NOOOO_STICKER_ID = "CAACAgUAAxkBAAEINx1kGM19RIT9DZRc4k7XXuelsE-RbwACdwEAAm6CQFd7GjMVdQOPuS8E";
     public static final String NA_SVYAZI_STICKER_ID = "CAACAgIAAxkBAAEHlHFj3YQxott-yPhbXwF6v1KbcKASbwACyAADMyQAAQxWdipbUAM9wi4E";
     public static final String NO_KIPESH_STICKER_ID = "CAACAgIAAxkBAAEHnlNj4YAcKk3hFdmSvyMMfLyPzK-_twACBwADC_VBCcoT-sqU7g7mLgQ";
 

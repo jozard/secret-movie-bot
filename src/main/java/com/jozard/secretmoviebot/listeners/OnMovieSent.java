@@ -75,7 +75,7 @@ public class OnMovieSent extends PrivateChatListener {
                                 item.getOwner().getFirstName())).collect(Collectors.joining(DELIMITER));
 
                 String spoilerContent = String.join(DELIMITER,
-                        MessageFormat.format("Hurray\\! The chosen one has arrived\\!{1}*||{0}||*",
+                        MessageFormat.format("Hurray\\! The chosen one has arrived\\!{1}We are watching *||{0}||*",
                                 Utils.escapeMarkdownV2Content(movies.get(index)), DELIMITER));
 
                 messageService.send(absSender, groupChatId, visibleContent);

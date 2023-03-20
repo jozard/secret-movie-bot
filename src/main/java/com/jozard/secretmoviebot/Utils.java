@@ -27,7 +27,7 @@ public class Utils {
                 result.getMovie().getOwner().getFirstName(), result.getVoted().size());
         String votedList = result.getVoted().stream().map(User::getFirstName).collect(Collectors.joining(","));
         return String.join(System.getProperty("line.separator"), movieResult,
-                escaped ? "Votes\\: " : "Votes: " + votedList);
+                (escaped ? "Votes\\: " : "Votes: ") + votedList);
     }
 
     public static String escapeMarkdownV2Content(String value) {
