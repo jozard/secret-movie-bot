@@ -16,10 +16,9 @@ public class ToggleDescription extends AdminCommand {
 
     public static final String NAME = "toggle_description";
     public static final String DESCRIPTION = """
-            With this command you can switch on/off movie description (by default is switched on) for current movie choosing.
-            It should be invoked  before calling any create command.
-            If description is switched on, in addition to the movie title, I will ask all participants to send me selected movie summary before voting starts.
-            This command has no effect after a create_... command was called in case of create_random option is selected.""";
+            Switches on/off movie description (by default is on) and should be invoked  before calling any create command.
+            If it is switched on, I will request to send me selected movie summary.
+            This command has no effect after any create_... command.""";
 
     public ToggleDescription(MessageService messageService, UserService userService) {
         super(userService, messageService, NAME, DESCRIPTION);
