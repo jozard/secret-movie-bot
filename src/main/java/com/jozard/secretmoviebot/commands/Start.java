@@ -40,7 +40,7 @@ public class Start extends BotCommand {
     public static final String NAME = "start";
     public static final String DESCRIPTION = """
             With this command you can start the Bot.
-            Starting the bot in a group chat registers a movie choosing for users joined from this group.""";
+            Starting the bot in a group chat registers a movie choosing for users to be joined from this group.""";
     private final MessageService messageService;
     private final UserService userService;
     private final ThreadPoolTaskScheduler scheduler;
@@ -69,7 +69,7 @@ public class Start extends BotCommand {
         boolean isGroup = Utils.isGroup(chat);
         if (isGroup) {
             // we are in a group
-            if (!userService.pitchRegistered(chatId)) {
+            if (!userService.groupExist(chatId)) {
                 // first time start command called for this chat
                 UserService.Group group;
                 try {

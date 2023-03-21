@@ -1,7 +1,6 @@
 package com.jozard.secretmoviebot.users;
 
 
-import com.jozard.secretmoviebot.config.ServiceConfig;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.User;
@@ -70,10 +69,6 @@ public class UserService {
     public final Optional<PitchStateMachine> getPitching(User user, Long chatId) {
         return pitchStateMachines.stream().filter(item -> item.user().equals(
                 user) && item.getCurrentGroup().isPresent() && item.getCurrentGroup().get().equals(chatId)).findFirst();
-    }
-
-    public final boolean pitchRegistered(long chatId) {
-        return groups.containsKey(chatId);
     }
 
     public final Group start(long chatId, String chatName, User admin) {
@@ -174,6 +169,7 @@ public class UserService {
         private PitchType pitchType;
 
         private ScheduledFuture<?> cleanupTask;
+        private boolean descriptionEnabled = true;
 
         public Group(long chatId, String chatName) {
             this.chatId = chatId;
@@ -241,7 +237,7 @@ public class UserService {
         }
 
         public boolean isAllMoviesSelected() {
-            if (ServiceConfig.DESCRIPTION_ENABLED) {
+            if (descriptionEnabled) {
                 return movies.size() == users.size() && movies.stream().noneMatch(
                         movie -> movie.getDescription().isEmpty());
             }
@@ -296,6 +292,15 @@ public class UserService {
 
         public List<VoteResult> getVotes() {
             return votes;
+        }
+
+        public boolean toggleDescription() {
+            this.descriptionEnabled = !this.descriptionEnabled;
+            return this.descriptionEnabled;
+        }
+
+        public boolean isDescriptionEnabled() {
+            return descriptionEnabled;
         }
 
         public class VoteResult {

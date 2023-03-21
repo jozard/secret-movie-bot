@@ -23,7 +23,7 @@ public abstract class GroupCommand extends BotCommand {
     @Override
     public void execute(AbsSender absSender, User user, Chat chat, String[] strings) {
         if (Utils.isGroup(chat)) {
-            if (!userService.pitchRegistered(chat.getId())) {
+            if (!userService.groupExist(chat.getId())) {
                 throw new IllegalArgumentException(
                         MessageFormat.format("Pitch is not registered in chat {0}", chat.getId()));
             } else {

@@ -4,7 +4,6 @@ import com.jozard.secretmoviebot.MessageService;
 import com.jozard.secretmoviebot.Utils;
 import com.jozard.secretmoviebot.actions.RequestDescription;
 import com.jozard.secretmoviebot.actions.StartVoting;
-import com.jozard.secretmoviebot.config.ServiceConfig;
 import com.jozard.secretmoviebot.users.Movie;
 import com.jozard.secretmoviebot.users.PitchStateMachine;
 import com.jozard.secretmoviebot.users.UserService;
@@ -92,7 +91,7 @@ public class OnMovieSent extends PrivateChatListener {
 
         } else if (List.of(UserService.PitchType.SIMPLE_VOTE, UserService.PitchType.BALANCED_VOTE).contains(
                 targetGroup.get().getPitchType())) {
-            if (ServiceConfig.DESCRIPTION_ENABLED) {
+            if (targetGroup.get().isDescriptionEnabled()) {
                 state.pendingDescription();
                 // we need to send this before requesting the description; therefore having return in the end of the block
                 messageService.send(absSender, message.getChatId(),
