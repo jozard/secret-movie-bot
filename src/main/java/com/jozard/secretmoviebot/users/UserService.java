@@ -237,7 +237,7 @@ public class UserService {
         }
 
         public boolean isAllMoviesSelected() {
-            if (descriptionEnabled) {
+            if (descriptionEnabled && !pitchType.equals(PitchType.RANDOM)) {
                 return movies.size() == users.size() && movies.stream().noneMatch(
                         movie -> movie.getDescription().isEmpty());
             }

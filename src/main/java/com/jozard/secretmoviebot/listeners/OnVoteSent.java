@@ -88,17 +88,18 @@ public class OnVoteSent extends PrivateChatListener {
                             int index = ThreadLocalRandom.current().nextInt(0, weights.size());
                             UserService.Group.VoteResult winner = votes.get(weights.get(index));
 
-                            messageService.send(absSender, chatId,
-                                    MessageFormat.format(
+                            messageService.send(absSender, chatId, MessageFormat.format(
                                             "Hurray\\! The chosen one has arrived\\!{1}We are watching *||{0}||*",
                                             Utils.escapeMarkdownV2Content(winner.getMovie().getTitle()), DELIMITER),
                                     MessageService.MARKDOWN_V2);
                         } else {
                             // simple vote
-                            messageService.send(absSender, chatId,
-                                    "||" + sortedVoteResults.stream().map(
-                                            item -> Utils.getVoteSummary(item, true)).collect(
-                                            Collectors.joining(DELIMITER)) + "||", MessageService.MARKDOWN_V2);
+                            messageService.send(absSender, chatId, MessageFormat.format("""
+                                            The vote result:
+                                            ||{0}||
+                                            """,
+                                    sortedVoteResults.stream().map(item -> Utils.getVoteSummary(item, true)).collect(
+                                            Collectors.joining(DELIMITER))), MessageService.MARKDOWN_V2);
                         }
 
                         userService.remove(chatId);

@@ -67,9 +67,12 @@ public class OnMovieSent extends PrivateChatListener {
                 List<String> movies = targetGroup.get().getMovies().stream().map(Movie::getTitle).toList();
                 int index = ThreadLocalRandom.current().nextInt(0, movies.size());
 
-                String visibleContent = targetGroup.get().getMovies().stream().map(
-                        item -> MessageFormat.format("*{0}* by {1}", item.getTitle(),
-                                item.getOwner().getFirstName())).collect(Collectors.joining(DELIMITER));
+                String visibleContent = MessageFormat.format("""
+                        Everyone is done:
+                        {0}
+                        """, targetGroup.get().getMovies().stream().map(
+                        item -> MessageFormat.format("*{0}* pitched by {1}", item.getTitle(),
+                                item.getOwner().getFirstName())).collect(Collectors.joining(DELIMITER)));
 
                 String spoilerContent = String.join(DELIMITER,
                         MessageFormat.format("Hurray\\! The chosen one has arrived\\!{1}We are watching *||{0}||*",
