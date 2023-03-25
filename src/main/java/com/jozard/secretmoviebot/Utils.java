@@ -10,8 +10,8 @@ import java.util.stream.Collectors;
 
 public class Utils {
     private final static String TO_ESCAPE = "!\"#$%&'()*+,-./:;<=>?@[]^_`{|}~";
-    private static final String RESULT_PATTERN_ESCAPED = "{2} votes\\: *{0}* by {1}";
-    private static final String RESULT_PATTERN = "{2} votes: *{0}* by {1}";
+    private static final String RESULT_PATTERN_ESCAPED = "{2} votes\\: *{0}* pitched by {1}";
+    private static final String RESULT_PATTERN = "{2} votes: *{0}* pitched by {1}";
 
     public static boolean isGroup(Chat chat) {
         return chat.isGroupChat() || chat.isSuperGroupChat();

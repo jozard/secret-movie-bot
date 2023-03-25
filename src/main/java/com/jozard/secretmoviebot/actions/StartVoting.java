@@ -1,6 +1,7 @@
 package com.jozard.secretmoviebot.actions;
 
 import com.jozard.secretmoviebot.MessageService;
+import com.jozard.secretmoviebot.users.Movie;
 import com.jozard.secretmoviebot.users.PitchStateMachine;
 import com.jozard.secretmoviebot.users.UserService;
 import org.springframework.stereotype.Component;
@@ -9,8 +10,12 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMa
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.bots.AbsSender;
 
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Component
 public class StartVoting extends Action {
@@ -36,18 +41,36 @@ public class StartVoting extends Action {
         List<InlineKeyboardButton> keyboardRow = new ArrayList<>();
         keyboardRow.add(voteButton);
         keyboardMarkup.setKeyboard(List.of(keyboardRow));
-        messageService.send(absSender, chatId, """
-                Amazing! The movie list is ready now!
-                Everyone can vote now. Click the button below or go to a private chat with me.""", keyboardMarkup);
 
+        Optional<UserService.Group> group = userService.getGroup(chatId);
+        Function<Movie, String> mapper = group.orElseThrow().isDescriptionEnabled() ? movie -> MessageFormat.format(
+                " - *{0}*: _{1}_", movie.getTitle(),
+                movie.getDescription()) : movie -> MessageFormat.format(" - *{0}*", movie.getTitle());
+        String allOptions =
+                group.get().getMovies().stream().map(mapper).collect(
+                        Collectors.joining(System.getProperty("line.separator")));
 
-        userService.getGroup(chatId).orElseThrow().getUsers().forEach(
+        messageService.send(absSender, chatId, MessageFormat.format("""
+                        Amazing! The movie list is ready!
+                        {0}
+                        Everyone can vote now. Click the button below or go to a private chat with me.""", allOptions),
+                keyboardMarkup);
+
+        group.get().getUsers().forEach(
                 item -> userService.getPrivateChat(item.user()).ifPresentOrElse(privateChatId -> {
                     PitchStateMachine userState = userService.getPitching(item.user()).orElseThrow();
                     if (userState.isPendingVoteStart()) {
                         userState.pendingVote();
                     }
-                    // TODO: print movie list with descriptions to the private chats
+
+                    String userVoteOptions = MessageFormat.format("""
+                                    The others proposed the movies below:
+                                    {0}
+                                    """,
+                            group.get().getMovies().stream().filter(movie -> !movie.getOwner().equals(item.user())).map(
+                                    mapper).collect(Collectors.joining(System.getProperty("line.separator"))));
+
+                    messageService.send(absSender, privateChatId, userVoteOptions);
                     requestVote.execute(absSender, item.user(), privateChatId, null);
 
                 }, () -> System.out.println(
